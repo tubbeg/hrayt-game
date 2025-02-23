@@ -65,7 +65,8 @@ executable hrayt-game
     other-modules:
         Types,
         DrawTetris,
-        Config
+        Config,
+        GameTime
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -74,7 +75,8 @@ executable hrayt-game
     build-depends:    
         base ^>=4.17.2.1,
         h-raylib,
-        containers
+        containers,
+        clock
 
     -- Directories containing source files.
     hs-source-dirs:   app

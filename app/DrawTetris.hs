@@ -10,7 +10,6 @@ import Types (Game, TetrisCell (Cell), Position(Pos))
 import qualified Config as C
 
 
-
 tetrisPosToWindowPos :: (Int,Int) -> (Int,Int)
 tetrisPosToWindowPos (px,py) =
   pos

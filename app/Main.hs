@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedLists #-}
 module Main where
 
@@ -20,19 +19,76 @@ import qualified Data.Map as M
 import Types (Game, CellState (Falling, Static), TetrisCell (Cell), Position(Pos))
 import qualified Config as C
 import qualified DrawTetris as DT
+import qualified GameTime as GT
+import System.Clock
 
-updateGameState :: p -> p
-updateGameState game = 
-  game
+-- i think that I'll skip using an ECS since I want to keep things easy
+-- but I could defintely see the value of it
 
-drawFunc :: Game -> IO Game
-drawFunc game = do
+getCellAbove :: (Int,Int) -> Game -> Maybe TetrisCell
+getCellAbove (x,y) game =
+  maybeCell
+  where
+    p = Pos (x,y - 1)
+    maybeCell = M.lookup p game
+
+updateCell :: Int -> Int -> Game -> Game
+updateCell x y game =
+  case aboveCell of
+    Just cell ->
+      M.insert p cell game
+    _ -> game
+  where
+    p = Pos (x,y)
+    aboveCell = getCellAbove (x,y) game
+
+dropCellsInRow :: Int -> Int -> Game -> Game
+dropCellsInRow x y game
+  | x <= 0 = game
+  | otherwise =
+    dropCellsInRow (x - 1) y updatedGame
+    where
+      updatedGame = updateCell x y game
+
+dropRows :: Int -> Game -> Game
+dropRows y game
+  | y <= 0 = game
+  | otherwise =
+    dropRows (y - 1) updatedGame
+    where
+      updatedGame = dropCellsInRow sx y game
+      (sx,_) = C.tetrisSize
+
+dropCells :: Game -> Game
+dropCells = dropRows sy
+    where
+      (_,sy) = C.tetrisSize
+
+removeCells :: Game -> Game
+removeCells game = game
+
+updateGameState :: Game -> Game
+updateGameState =
+  -- compose all "systems"
+  dropCells . removeCells
+
+drawFunc :: Game -> TimeSpec -> IO (Game, TimeSpec)
+drawFunc game time = do
+  currentTime <- GT.getMonoTime
+  let
+    updatedGame = updateGameState game
+    ut = time + currentTime
+    reset = 0
   beginDrawing
   DT.drawTetris game
   endDrawing
-  return updatedGame
-  where
-    updatedGame = updateGameState game
+  if GT.isTimeToUpdateGame ut
+    then do
+      putStrLn $ "running update" ++ show ut
+      return (updatedGame, reset)
+    else do
+      putStrLn $ "time is " ++ show ut
+      return (game, ut)
 
 loadWindow :: IO WindowResources
 loadWindow = do
@@ -43,12 +99,12 @@ loadWindow = do
     -- add a little extra room for text (score)
     (sx,sy) = (a, b + C.metaSize)
 
-mainDraw :: Bool -> Game -> IO ()
-mainDraw True _ = return ()
-mainDraw False game = do
+mainDraw :: Bool -> TimeSpec -> Game -> IO ()
+mainDraw True _ _ = return ()
+mainDraw False time game = do
   stopDrawing <- windowShouldClose
-  updatedGameState <- drawFunc game
-  mainDraw stopDrawing updatedGameState
+  (updatedGameState, ct) <- drawFunc game time
+  mainDraw stopDrawing ct updatedGameState
 
 initGame :: Game
 -- initGame = M.empty
@@ -57,6 +113,6 @@ initGame = [(Pos (2,2), Cell skyBlue Falling), (Pos (9, 15), Cell magenta Static
 main :: IO ()
 main = do
   w <- loadWindow
-  mainDraw False initGame
+  mainDraw False 0 initGame
   closeWindow $ Just w
   return ()
