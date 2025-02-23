@@ -12,80 +12,36 @@ import Raylib.Core (
   setTargetFPS,
   clearBackground)
 import Raylib.Core.Text (drawText)
-import Raylib.Util.Colors (orange, white, magenta, green)
+import Raylib.Util.Colors (orange, white, magenta, green, purple, skyBlue)
 import Raylib.Internal(WindowResources)
 import Raylib.Core.Shapes (drawRectangle)
 import Raylib.Types (Color)
 import qualified Data.Map as M
+import Types (Game, CellState (Falling, Static), TetrisCell (Cell), Position(Pos))
+import qualified Config as C
+import qualified DrawTetris as DT
 
-newtype Position = Pos (Int,Int) deriving (Eq, Ord)
-data CellState = Falling | Static
-data TetrisCell = Empty | Cell Color CellState
-type Game = M.Map Position TetrisCell
-
-
-tetrisSize :: (Int, Int)
-tetrisSize = (10,20)
-
-tetrisBlockSize :: Position
-tetrisBlockSize = Pos (30, 30)
-
-drawTetrisBlock :: (Int, Int) -> Color -> IO ()
-drawTetrisBlock (x,y) color = do
-  drawRectangle x y width height color
-  return ()
-  where
-    f (Pos (a,b)) = (a,b)
-    (width, height) = f tetrisBlockSize
-
-drawCell :: (Int, Int) -> Maybe TetrisCell -> IO ()
-drawCell pos (Just (Cell color _)) = do
-  drawTetrisBlock pos color
-  return ()
-drawCell _ _ = do return ()
-
-drawTetrisBlockRow :: Int -> Int -> Game -> IO ()
-drawTetrisBlockRow x y game
-  | x <= 0 = return ()
-  | otherwise = do
-    drawCell (x,y) maybeCell
-    drawTetrisBlockRow (x - 1) y game
-    where
-      maybeCell = M.lookup (Pos (x,y))  game
-
-drawTetrisBlocks :: Int -> Game -> IO ()
-drawTetrisBlocks y game
-  | y <= 0 = return ()
-  | otherwise = do
-    drawTetrisBlockRow gx y game
-    drawTetrisBlocks (y - 1) game
-    return ()
-    where
-      (gx,_) = tetrisSize
-
-drawStuff :: Game -> IO Game
-drawStuff game = do
-  clearBackground white
-  -- drawText "woah woooh" 100 500 100 orange
-  drawTetrisBlock (100,100) green
-  drawTetrisBlock (300,200) magenta
-  drawTetrisBlocks gy game
-  return game
-  where
-    (_,gy) = tetrisSize
+updateGameState :: p -> p
+updateGameState game = 
+  game
 
 drawFunc :: Game -> IO Game
 drawFunc game = do
   beginDrawing
-  gs <- drawStuff game
+  DT.drawTetris game
   endDrawing
-  return gs
-
+  return updatedGame
+  where
+    updatedGame = updateGameState game
 
 loadWindow :: IO WindowResources
 loadWindow = do
   setTargetFPS 60
-  initWindow 500 800 "my-window"
+  initWindow sx sy "TETRIS"
+  where
+    (a,b) = C.windowSize
+    -- add a little extra room for text (score)
+    (sx,sy) = (a, b + C.metaSize)
 
 mainDraw :: Bool -> Game -> IO ()
 mainDraw True _ = return ()
@@ -96,7 +52,7 @@ mainDraw False game = do
 
 initGame :: Game
 -- initGame = M.empty
-initGame = [(Pos (2,2), Cell magenta Falling)]
+initGame = [(Pos (2,2), Cell skyBlue Falling), (Pos (9, 15), Cell magenta Static)]
 
 main :: IO ()
 main = do
